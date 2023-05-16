@@ -6,6 +6,12 @@ __pycache__/
 # C extensions
 *.so
 
+# sandbox file
+sandbox.ipynb
+
+# config file, jic
+config.py
+
 # Distribution / packaging
 .Python
 build/
