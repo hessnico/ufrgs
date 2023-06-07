@@ -5,42 +5,39 @@ output: html_notebook
 
 # Questão 9
 
-```{r, echo=FALSE, warning=FALSE}
-
-if(!require('glue')) {
-  install.packages('glue')
-  library('glue')
-}
+```{r setup, include=FALSE, warning=FALSE}
+library(reticulate)
+use_python("C:/Users/User/anaconda3/python.exe")
 
 setwd("D:/github/ufrgs/generalized_linear_models")
 ```
 
-```{r}
-df <- read.csv2("lista_1/data/Supermercados.csv", sep = ",", encoding = "UTF-8")
-df
+```{python, include = FALSE}
+import pandas as pd
+from scipy.stats import kurtosis, skew
+
+path = "D:/github/ufrgs/generalized_linear_models/lista_1/data/Supermercados.xlsx"
 ```
 
-```{r}
-colnames(df)
+```{python}
+df = pd.read_excel(path, decimal = ',')
+df.head()
 ```
 
-## Análise descritiva
-
-```{r}
-
-
-df_descritivas <- function(numeric_cols, dataframe) {
-
-  for (i in 1:length(numeric_cols)) {
-    print(dataframe$numeric_cols[i])
-    v[1] = mean(dataframe$numeric_cols[i])
-    }
-    
-    return(v)
-  }
-df_descritivas(numeric_cols, df)
+```{python}
+df.dtypes
 ```
 
-```{r}
+```{python}
+def descritivas(col):
+  tmp = col.describe()[:]
+  tmp['kurtosis'] = col.kurtosis()
+  tmp['skew'] = col.skew()
+  return tmp
+```
 
+```{python}
+descritivas(df['Gasto'])
+descritivas(df['Distância'])
+descritivas(df['Npessoas'])
 ```
