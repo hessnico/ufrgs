@@ -1,0 +1,46 @@
+---
+title: "Lista 1"
+output: html_notebook
+---
+
+# Questão 9
+
+```{r, echo=FALSE, warning=FALSE}
+
+if(!require('glue')) {
+  install.packages('glue')
+  library('glue')
+}
+
+setwd("D:/github/ufrgs/generalized_linear_models")
+```
+
+```{r}
+df <- read.csv2("lista_1/data/Supermercados.csv", sep = ",", encoding = "UTF-8")
+df
+```
+
+```{r}
+colnames(df)
+```
+
+## Análise descritiva
+
+```{r}
+
+
+df_descritivas <- function(numeric_cols, dataframe) {
+
+  for (i in 1:length(numeric_cols)) {
+    print(dataframe$numeric_cols[i])
+    v[1] = mean(dataframe$numeric_cols[i])
+    }
+    
+    return(v)
+  }
+df_descritivas(numeric_cols, df)
+```
+
+```{r}
+
+```
