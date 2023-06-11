@@ -8,6 +8,7 @@ __pycache__/
 
 # sandbox file
 sandbox.ipynb
+*.xlsx
 
 # config file, jic
 config.py
@@ -168,3 +169,8 @@ cython_debug/
 # file ext 
 
 *.csv
+
+*.Rdata
+*.Rhistory
+
+*.html
