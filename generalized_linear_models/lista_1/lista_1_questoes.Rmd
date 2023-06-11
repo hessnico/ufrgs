@@ -1,0 +1,197 @@
+---
+title: "Lista 1"
+output:
+  html_document:
+    df_print: paged
+---
+
+# Questão 9
+
+```{r setup, include=FALSE, warning=FALSE}
+
+requiredPackages <- c("reticulate","tidyverse", "ggExtra", "ggpubr")
+for (package in requiredPackages) { #Installs packages if not yet installed
+  if (!requireNamespace(package, quietly = TRUE)) {
+    install.packages(package)
+  }
+  else {
+    library(package, character.only = TRUE)
+  } 
+}
+
+
+use_python("C:/Users/User/anaconda3/python.exe")
+
+setwd("D:/github/ufrgs/generalized_linear_models")
+```
+
+## Análise descritiva
+
+```{python, include = FALSE}
+import pandas as pd
+from scipy.stats import kurtosis, skew
+
+path = "D:/github/ufrgs/generalized_linear_models/lista_1/data/Supermercados.xlsx"
+```
+
+```{python}
+df = pd.read_excel(path, decimal = ',')
+df.head()
+```
+
+```{python}
+df.dtypes
+```
+
+```{python}
+def descritivas(col):
+  tmp = col.describe()[:]
+  tmp['kurtosis'] = col.kurtosis()
+  tmp['skew'] = col.skew()
+  return tmp
+```
+
+```{python}
+descritivas(df['Gasto'])
+descritivas(df['Distância'])
+descritivas(df['Npessoas'])
+```
+
+```{r, include = FALSE}
+df = read.csv("../lista_1/data/Supermercados.csv", sep = ";", fileEncoding="latin1", dec = ",")
+```
+
+```{r}
+ggplot(data = df, (aes(x = as.factor(`Tipo.de.cliente`), y = `Gasto`))) + 
+  geom_jitter(color="black", size=0.6, alpha=0.9) + 
+    geom_boxplot() +
+    ggtitle("Boxplot de gasto x tipo de cliente")
+
+ggplot(data = df, (aes(x = as.factor(`Forma.de.pagamento`), y = `Gasto`))) + 
+  geom_jitter(color="black", size=0.6, alpha=0.9) + 
+    geom_boxplot() +
+    ggtitle("Boxplot de gasto x forma de pagamento")
+
+ggplot(data = df, aes(x = Npessoas, y = Gasto)) + 
+  geom_point() +
+  ggtitle("Scatterplot de gasto x numero de pessoas")
+```
+
+## Ajuste de um modelo linear
+### Ajuste do modelo como Gasto sendo a variável resposta
+```{r}
+lm = lm(Gasto ~ Npessoas + Forma.de.pagamento + Tipo.de.cliente + Distância, data = df)
+
+summary(lm)
+```
+
+### Diagnóstico do ajuste
+
+```{r}
+res_diag <- function(model, dataframe) {
+    
+    res <- model$residuals
+    fitted <- model$fitted.values
+    actual <- dataframe$Gasto
+    cooks_dist <- cooks.distance(lm)
+    
+    diag_plot <- data.frame(actual, fitted, res, cooks_dist)
+    diag_plot$group <- factor(ifelse(diag_plot$cooks_dist > 0.05, 1, 0))
+    
+    par(mfrow=c(2,2))
+    
+    p1 <- ggplot(diag_plot, aes(x = 1:nrow(diag_plot), y = res)) + 
+      geom_point() +
+      geom_hline(yintercept = 0, color = "blue") +
+      ggtitle("Resíduos") +
+      xlab("Amostra")
+    
+    p2 <- ggplot(diag_plot, aes(x=res)) + 
+      geom_histogram(bins = 50) +
+      geom_density(color = "red", size = 1.2) +
+      geom_vline(xintercept = 0, color = "red", size = 1.2) + 
+      ggtitle("Histograma dos resíduos")
+    
+    
+    p3 <- ggplot(diag_plot, aes(sample = res)) + 
+      stat_qq(size = 2) + 
+      stat_qq_line() + 
+      ylab("Quantis teóricos") +
+      xlab("Quantis da amostra") +
+      ggtitle("qq-plot dos residuos") +
+      theme(legend.position = "none")
+    
+    p4 <- ggplot(diag_plot, aes(1:nrow(diag_plot), cooks_dist, color=group, group=group)) +
+      geom_point(size=3) +
+      geom_segment(aes(1:nrow(diag_plot), xend=1:nrow(diag_plot), 0, yend=cooks_dist, color=group), data=diag_plot)  +
+      theme_bw() +
+      scale_color_manual(values=c("black", "red1")) +
+      ylab("Distância de Cook") +
+      xlab("Amostra") +
+      theme(legend.position = "none")
+    
+    figure <- ggarrange(p1, p2, p3, p4, ncol = 2, nrow = 2)
+    rm(p1, p2, p3, p4, res, fitted, diag_plot, actual, cooks_dist)
+  
+    return(figure)
+}
+  
+res_diag(model = lm, dataframe = df)
+```
+
+Nosso resíduo não está seguindo muito fortemente um distribuição normal, temos assimetria. Também temos outliers, possivelmente três, vistos a partir da distância de Cook. O modelo possuí um r-squared baixo, perto de 30%. 
+
+## Ajuste de um modelo linear generalizado 
+### Ajuste com distribuição Gamma
+
+```{r}
+attach(df)
+gamma_ml <- glm(Gasto ~ Npessoas + Forma.de.pagamento + Tipo.de.cliente + Distância, family = Gamma(link = "inverse"))
+detach(df)
+
+summary(gamma_ml)
+```
+
+### Ajuste com distribuição normal Inversa
+
+```{r}
+
+attach(df)
+inv_gauss <- glm(Gasto ~ Npessoas + Forma.de.pagamento + Tipo.de.cliente + Distância, family = inverse.gaussian(link = "1/mu^2"))
+
+detach(df)
+
+summary(inv_gauss)
+```
+
+### Qual teve o melhor desempenho? 
+
+```{r}
+par(mfrow=c(1,2))
+scatter.smooth(rstandard(gamma_ml, type='deviance'), col='gray')
+scatter.smooth(rstandard(inv_gauss, type='deviance'), col='gray')
+```
+
+```{r}
+par(mfrow=c(1,2))
+plot(fitted(gamma_ml),residuals(gamma_ml), xlab = "Gamma")
+plot(fitted(inv_gauss),residuals(inv_gauss), xlab = "Inverse Gaussian")
+```
+
+Pela análise gráfico e do desvio, temos como preferível nesse caso a distribuição Gamma.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
