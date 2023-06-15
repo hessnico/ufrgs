@@ -2,6 +2,7 @@
 *.html
 *.Rhistory
 *.Rdata
+*.jpeg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
