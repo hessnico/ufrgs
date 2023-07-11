@@ -4,6 +4,10 @@
 *.Rdata
 *.jpeg
 
+*.pdf
+*.Rproj
+*.html
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -180,3 +184,4 @@ cython_debug/
 *.Rhistory
 
 *.html
+.Rproj.user

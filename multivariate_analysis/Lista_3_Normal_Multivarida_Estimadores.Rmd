@@ -1,0 +1,354 @@
+---
+title: "Lista 3 - Normal Multivariada Simula??es dos Estimadores da M?dia e Vari?ncia"
+author: "M?rcia H. Barbian"
+output:
+  bookdown::gitbook:
+    split_by: section+number
+    config:
+     toc:
+       collapse: subsection
+       scroll_highlight: yes
+       before: null
+       after: null
+     toolbar:
+       position: fixed
+     edit : null
+     download: null
+     search: yes
+     fontsettings:
+       theme: white
+       family: sans
+       size: 3
+     sharing: no
+site: bookdown::bookdown_site
+---
+
+# Exerc?cio
+
+Considere uma normal bivariada com $\mu_1=1$, $\mu_2=3$, $\sigma_{11}=2$, $\sigma_{22}=1$ e $\rho_{12}=0$.
+
+**a)** Escreva a densidade dessa normal bivariada.
+
+**b)** Gere amostras de n=50, n=100 e n=1000 dessa distribui??o e apresente o scatterplot dessas amostras, o que ? poss?vel observar?
+
+```{r}
+mtvnrom_50 <- data.frame(mvtnorm::rmvnorm(50, mean = c(X = 1, Y = 3), sigma = matrix(c(2, 0, 0, 1), nrow = 2, ncol = 2, byrow = TRUE)))
+
+mtvnrom_100 <- data.frame(mvtnorm::rmvnorm(100, mean = c(X = 1, Y = 3), sigma = matrix(c(2, 0, 0, 1), nrow = 2, ncol = 2, byrow = TRUE)))
+
+mtvnrom_1000 <- data.frame(mvtnorm::rmvnorm(1000, mean = c(X = 1, Y = 3), sigma = matrix(c(2, 0, 0, 1), nrow = 2, ncol = 2, byrow = TRUE)))
+```
+
+```{r}
+library(ggplot2)
+library(patchwork)
+
+p1 <- ggplot(mtvnrom_50, aes(x=X, y= Y))+
+  geom_point()
+
+p2 <- ggplot(mtvnrom_100, aes(x=X, y= Y))+
+  geom_point()
+
+p3 <- ggplot(mtvnrom_1000, aes(x=X, y= Y))+
+  geom_point()
+
+(p1 | p2 | p3)
+```
+
+Sozinhas não possuem correlação. São homogêneas entre os pontos.
+
+**c)** Fa?a o histograma e o gr?fico de densidades das amostras obtidas em b, o que ? poss?vel observar.
+
+```{r}
+p1 <- ggplot(mtvnrom_50, aes(x=X))+
+  geom_histogram(bins = 10)
+
+p2 <- ggplot(mtvnrom_100, aes(x=X))+
+  geom_histogram(bins = 10)
+
+p3 <- ggplot(mtvnrom_1000, aes(x=X))+
+  geom_histogram(bins = 10)
+
+p4 <- ggplot(mtvnrom_50, aes(x = X)) +
+  geom_density()
+
+p5 <- ggplot(mtvnrom_100, aes(x = X)) +
+  geom_density()
+
+p6 <- ggplot(mtvnrom_1000, aes(x = X)) +
+  geom_density()
+
+(p1 | p2 | p3) /
+(p4 | p5 | p6)
+```
+
+**d)** Gere uma amostra aleat?ria de tamanho $n=20$ e estime o vetor de m?dias, a matriz de vari?ncia e covari?ncia e a matriz de correla??o dessa amostra, armazene esse dados. Repita esse procedimento 3000 vezes, calcule a M?DIA e fa?a um gr?fico das 1000 ESTIMATIVAS de cada um dos estimadores de $\mu_1, \mu_2, \sigma_{11}, \sigma_{12}, \sigma_22, \rho$.
+
+```{r}
+set.seed(42)
+first_sample <- mtvnrom_50[sample(nrow(mtvnrom_50), 20), ]
+
+first_mu_hat <- c(mean(first_sample$X), mean(first_sample$Y))
+first_sigma_hat <- matrix(
+      c(sd(first_sample$X), cov(first_sample$X, first_sample$Y), 
+        cov(first_sample$X, first_sample$Y), sd(first_sample$Y)), nrow = 2)
+
+first_mu_hat
+first_sigma_hat
+```
+
+```{r}
+m_bootstrap <- function(df, ntimes, sample_size, verbose = FALSE) {
+  print(paste("sample size of ", as.character(sample_size)))
+  if(verbose!=FALSE) {
+    print(paste("bootstrap for normal mtv ", as.character(verbose)))
+  }
+  mu_hat <- c(0, 0)
+  sigma_hat <- matrix(rep(0, 4), nrow = 2, ncol = 2)
+  for(i in 1:ntimes) {
+    tmp <- df[sample(nrow(df), sample_size, replace = TRUE), ]
+    # print(tmp)
+    mu_hat <- mu_hat + c(mean(tmp$X), mean(tmp$Y))
+    sigma_hat <- 
+      sigma_hat + 
+      matrix(
+            c(sd(tmp$X), cov(tmp$X, tmp$Y), 
+              cov(tmp$X, tmp$Y), sd(tmp$Y)), nrow = 2
+            )
+    #print(mu_hat/i)
+  }
+  return(list(mu_hat/ntimes, sigma_hat/ntimes))
+}
+
+m_bootstrap(mtvnrom_50, 5000, 20, 50)
+
+m_bootstrap(mtvnrom_100, 5000, 20, 100)
+
+m_bootstrap(mtvnrom_1000, 5000, 20, 1000)
+```
+
+**e)** Reafa?a a letra d) com tamanhos de amostra $n=50, n=100, n=500$ e $n=1000$. Compare e comente sobre os resultados encontrados.
+
+```{r}
+# m_bootstrap(mtvnrom_50, 3000, 50, 50)
+# m_bootstrap(mtvnrom_50, 3000, 100, 50)
+# m_bootstrap(mtvnrom_50, 3000, 500, 50)
+# m_bootstrap(mtvnrom_50, 3000, 1000, 50)
+
+m_bootstrap(mtvnrom_1000, 3000, 50, verbose = 1000)
+m_bootstrap(mtvnrom_1000, 3000, 100, verbose = 1000)
+m_bootstrap(mtvnrom_1000, 3000, 500, verbose = 1000)
+m_bootstrap(mtvnrom_1000, 3000, 1000, verbose = 1000)
+
+print("Sendo meus valores verdadeiros:")
+mu_real <- c(mean(mtvnrom_1000$X), mean(mtvnrom_1000$Y))
+sigma_real <- matrix(c(sd(mtvnrom_1000$X), cov(mtvnrom_1000$X, mtvnrom_1000$Y), cov(mtvnrom_1000$X, mtvnrom_1000$Y), sd(mtvnrom_1000$Y)), ncol = 2)
+
+print(mu_real)
+print(sigma_real)
+```
+
+Fazendo um sample de 1000, com mtas repetiçoes, vemos que convergimos rapidamente.
+
+# Exerc?cio
+
+Considere uma normal bivariada com $\mu_1=1$, $\mu_2=3$, $\sigma_{11}=2$, $\sigma_{22}=1$ e $\rho_{12}=-0.8$.
+
+**a)** Escreva a densidade dessa normal bivariada.
+
+**b)** Gere amostras de n=50, n=100 e n=1000 dessa distribui??o e apresente as estimativas para seus par?metros e o scatterplot dessas amostras, o que ? poss?vel observar?
+
+```{r}
+library(dplyr)
+
+mu = c(X = 1, Y = 3)
+sigma <- matrix(c(2, -0.8, -0.8, 1), ncol = 2)
+
+amostra2_50 <- data.frame(mvtnorm::rmvnorm(50, mean = mu, sigma = sigma))
+
+amostra2_100 <- data.frame(mvtnorm::rmvnorm(100, mean = mu, sigma = sigma))
+
+amostra2_1000 <- data.frame(mvtnorm::rmvnorm(1000, mean = mu, sigma = sigma))
+
+p1 <- amostra2_50 %>%
+  ggplot(aes(x = X, y = Y)) +
+  geom_point()
+
+p2 <- amostra2_100 %>%
+  ggplot(aes(x = X, y = Y)) +
+  geom_point()
+
+p3 <- amostra2_1000 %>%
+  ggplot(aes(x = X, y = Y)) +
+  geom_point()
+
+
+p1
+p2
+p3 
+```
+
+**C)** Fa?a o histograma e o gr?fico de densidades das amostras obtidas em b, o que ? poss?vel observar.
+
+```{r}
+h1 = amostra2_50 %>% 
+  ggplot(aes(x = X)) +
+  geom_histogram(bins = 10)
+
+h2 = amostra2_100 %>%
+  ggplot(aes(x = X)) + 
+  geom_histogram(bins = 20)
+
+h3 = amostra2_1000 %>%
+  ggplot(aes(x = X)) + 
+  geom_histogram(bins = 50)
+
+
+(h1 | h2 | h3)
+```
+
+**d)** Gere uma amostra aleat?ria de tamanho $n=20$ e estime o vetor de m?dias, a matriz de vari?ncia e covari?ncia e a matriz de correla??o dessa amostra, armazene esse dados. Repita esse procedimento 3000 vezes, calcule a m?dia e fa?a um gr?fico das 1000 estimativas de cada um dos estimadores de $\mu_1, \mu_2, \sigma_{11}, \sigma_{12}, \sigma_{22}, \rho$.
+
+```{r}
+bootstrap_normal_multivariate <- function(ntimes, 
+                                          sample_size, 
+                                          mu = c(X = 0, Y = 0),
+                                          sigma = c(1,0,0,1),
+                                          verbose = FALSE)
+{
+    
+  print(paste("sample size of ", as.character(sample_size)))
+  
+  if(verbose ==FALSE) {
+    print(paste("bootstrap for normal mtv ", as.character(sample_size)))  
+  }
+  
+  mu_hat <- c(0, 0)
+  sigma_hat <- matrix(rep(0, 4), nrow = 2, ncol = 2)
+  
+  sigma = matrix(sigma, nrow = 2, ncol = 2, byrow = TRUE)
+  
+  matrix_of_mu_hats <- matrix(NA, ncol = 2, nrow = ntimes)
+  matrix_of_sigma_hats <- matrix(NA, ncol = 4, nrow = ntimes)
+  
+  
+  for(i in 1:ntimes) {
+    tmp <- data.frame(mvtnorm::rmvnorm(sample_size, mean = mu, sigma = sigma))
+    
+    matrix_of_mu_hats[i, ] = c(mean(tmp$X), mean(tmp$Y))
+    matrix_of_sigma_hats[i, ] = matrix(
+                                  c(sd(tmp$X), cov(tmp$X, tmp$Y), 
+                                    cov(tmp$X, tmp$Y), sd(tmp$Y)), nrow = 2
+                                )
+    
+    mu_hat <- 
+        mu_hat + c(mean(tmp$X), mean(tmp$Y))
+    
+    sigma_hat <- 
+      sigma_hat + 
+      matrix(
+            c(sd(tmp$X), cov(tmp$X, tmp$Y), 
+              cov(tmp$X, tmp$Y), sd(tmp$Y)), nrow = 2
+            )
+  
+  }
+  
+  return(
+    list(
+      mu_hat/ntimes, 
+      sigma_hat/ntimes, 
+      matrix_of_mu_hats,
+      data.frame(matrix_of_sigma_hats)
+      )
+    )
+}
+
+b <- bootstrap_normal_multivariate(ntimes = 3000, sample_size = 20, mu = c(X = 1, Y = 3), sigma = c(2, 0, 0, 1))
+
+df <- data.frame(b[3])
+par(mfrow = c(1,2))
+hist(df$X1, xlim = c(0, 2))
+hist(df$X2,  xlim = c(2, 4))
+```
+
+**e)** Reafa?a a letra d com tamanhos de amostra $n=50, n=100, n=500$ e $n=1000$. Compare e comente sobre os resultados encontrados.
+
+```{r}
+b1 <- bootstrap_normal_multivariate(ntimes = 3000, sample_size = 50, mu = c(X = 1, Y = 3), sigma = c(2, 0, 0, 1))
+b2 <- bootstrap_normal_multivariate(ntimes = 3000, sample_size = 100, mu = c(X = 1, Y = 3), sigma = c(2, 0, 0, 1))
+b3 <- bootstrap_normal_multivariate(ntimes = 3000, sample_size = 500, mu = c(X = 1, Y = 3), sigma = c(2, 0, 0, 1))
+b4 <- bootstrap_normal_multivariate(ntimes = 3000, sample_size = 1000, mu = c(X = 1, Y = 3), sigma = c(2, 0, 0, 1))
+
+df1 <- data.frame(b1[3])
+df2 <- data.frame(b2[3])
+df3 <- data.frame(b3[3])
+df4 <- data.frame(b4[3])
+```
+
+```{r}
+par(mfrow = c(4,2))
+hist(df1$X1, xlim = c(0, 2))
+hist(df1$X2,  xlim = c(2, 4))
+hist(df2$X1, xlim = c(0, 2))
+hist(df2$X2,  xlim = c(2, 4))
+hist(df3$X1, xlim = c(0, 2))
+hist(df3$X2,  xlim = c(2, 4))
+hist(df4$X1, xlim = c(0, 2))
+hist(df4$X2,  xlim = c(2, 4))
+```
+
+# Exercicio
+
+Seja $\textbf{X}$ uma $N_3(\mu,\sum)$ com $\mu'=[-3,1-4]$ e
+
+$$
+ \sum = \begin{bmatrix} 
+  1 & -2 & 0 \\
+  -2 & 5 & 0 \\
+  0 & 0 & 2
+  \end{bmatrix}
+  $$
+
+Qual das vari?veis aleat?rias s?o independentes? Justifique sua resposta.
+
+**a)** $X_1$ e $X_2$
+
+Não são independentes, $\rho \ne 0$.
+
+**c)** $X_2$ e $X_3$
+
+São independentes, $\rho = 0$.
+
+**b)** $X_1$ e $X_3$
+
+São independentes, $\rho = 0$.
+
+# Exerc?cio
+
+Seja $X_1, ..., X_{60}$ uma vari?vel aleat?ria de tamanho 60 de uma distribui??o normal 4-variada com m?dia $\mu$ e covari?ncia $\sum$. Especifique:
+
+**a)** A distribui??o de $\overline{X}$.
+
+$$
+\overline{X} \sim N(\mu, \frac{\sigma}{n = 60})
+$$
+
+**b)** A distribui??o de $(\textbf{X}_1 -\mu)'\sum^{-1}(\textbf{X}_1-\mu)$
+
+Vai ser uma chi-quadrado com um grau de k = 4
+
+$$
+(\textbf{X}_1 -\mu)'\sum^{-1}(\textbf{X}_1-\mu) \sim \chi^2_1
+$$
+
+**c)** A distribui??o de $(\overline{\textbf{X}} -\mu)'\sum^{-1}(\overline{\textbf{X}}-\mu)$
+
+$$
+(\overline{\textbf{X}} -\mu)'\sum^{-1}(\overline{\textbf{X}}-\mu) \sim N(0
+$$
+
+**d)** A distribui??o aproximada de $n(\overline{\textbf{X}} -\mu)'S^{-1}(\overline{\textbf{X}}-\mu)$
+
+# Exerc?cio
+
+Prove que $(\textbf{X} -\mu)'\sum^{-1}(\textbf{X}-\mu)$ segue uma distribui??o qui-quadrado com p graus de liberdade, ou seja, $(\textbf{X} -\mu)'\sum^{-1}(\textbf{X}-\mu) \sim \chi^2_{p}$.
