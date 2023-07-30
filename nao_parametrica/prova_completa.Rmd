@@ -1,0 +1,361 @@
+---
+title: "Prova de Estatística Não Paramétrica"
+author: "Nicolas Hess 00334441"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+# Resolver o problema 9 do capítulo 7 do livro An Introduction to Statistical Learning with Applications in R.
+
+## Importando bibliotecas
+```{r, warning = FALSE, message=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(boot)
+library(splines)
+library(patchwork)
+library(gridExtra)
+```
+
+## Importando o banco
+```{r}
+df = ISLR2::Boston
+df = df[c("nox", "dis")]
+head(df)
+```
+
+## Breve análise descritiva
+Temos como variável preditora $dis$ e $nox$ como variável resposta.
+```{r}
+plot(x = df$dis, y = df$nox, xlab = "dis", ylab = "nox", main = "scatterplot")
+```
+
+## Resposta das questões
+
+Fazendo a regressão polinomial com grau três
+```{r}
+fit_poly = lm(nox ~ poly(dis, 3), data = df)
+summary(fit_poly)
+```
+Ficamos com um $r^2 \approx 0.714$, ou seja, além dos três graus serem significativos pela regressão linear, tivemos que somente a variável $dis$ com seus três graus polinomiais faz com que explicamos mais de 70% da variabilidade total da variável $nox$.
+
+```{r}
+conf_int_fit = predict(fit_poly, interval = "confidence")
+plot_values = cbind(df, conf_int_fit)
+
+g1 = ggplot(plot_values, aes(x=fit, y=nox)) +
+  geom_point(shape=1) +
+  geom_abline(intercept=0, slope=1, colour = "red", linewidth = 1) +
+  labs(x='Predicted Values', y='Actual Values', title='Predicted vs. Actual Values')
+
+g2 = ggplot(plot_values, aes(x = dis, y = nox)) +
+     geom_point(shape=1) +
+     geom_ribbon( aes(ymin = lwr, ymax = upr), alpha = .15) +
+     geom_line(aes(y = fit), colour = "red", linewidth = 1)
+
+(g1 | g2)
+```
+
+Analisando o gráfico de predicted vs actual values, tirando algumas observações com valor real $\approx 0.87$ coisa que nosso modelo não captou bem, temos que os valores estão próximos da reta vermelha. Acredito que tenha sido um bom ajuste. Vemos também no gráfico ao lado que temos bem pouco variabilidade do intervalo de confiança para os dados do intervalo de 0 até 10, tendo um aumento no intervalo de confiança após os valores, devido a pouca informação que temos sobre valores para $dis > 10$.  
+
+Para descobrir qual o melhor fit polinomial, vou calcular a deviance para os dez polinômios 
+
+```{r}
+poly_graph = function(data, i) {
+    g = as.data.frame(data) %>%
+                    ggplot(aes(x = independent, y = dependent)) +
+                    geom_point(colour = "black",  shape=1) +
+                    geom_ribbon( aes(ymin = lwr, ymax = upr), alpha = .15) +
+                    geom_line(aes(y = fit), linewidth = 1, colour = "red") +
+                    ylim(0.25, 0.9) +
+                    xlim(1, 12.5) +
+                    ggtitle(paste("Polynomial fit with degree ", i)) +
+                    theme_minimal()
+    
+    return(g)
+}
+
+auto_fit = function(
+    to,
+    from,
+    dependent,
+    independent
+  ) 
+  {
+    df_return = c()
+    deviance = c()
+    graphs = c()
+    cv_values = c()
+    
+    for (i in to:from) {
+      temp_fit = lm(dependent ~ poly(independent, i))
+      glm_fit_cv = glm(dependent ~ poly(independent, i))
+      
+      pred_tmp = predict(temp_fit, interval = "confidence")
+      conf_int_fit = cbind(dependent, independent, pred_tmp)
+      
+      df_return[i] = list(conf_int_fit)
+      deviance[i] = deviance(temp_fit)
+      graphs[[i]] = poly_graph(conf_int_fit, i)
+      cv_values[i] = cv.glm(data.frame(dependent, independent), glm_fit_cv)$delta[1]
+      
+    }
+  return(list(
+            df_return, 
+            deviance, 
+            graphs,
+            cv_values
+            )
+         )
+}
+
+multiple_fits = auto_fit(to = 1, from = 10, dependent = df$nox, independent = df$dis)
+```
+
+Após calculado, teremos
+```{r}
+xp = seq(1, 10, by = 1)
+mp = multiple_fits[2][[1]]
+
+d_v = c(mp)
+names(d_v) = c(xp)
+
+print("Deviance values")
+```
+
+
+```{r, echo = FALSE}
+print(d_v)
+
+data.frame(xp, mp) %>% 
+    ggplot(aes(xp, mp)) +
+    geom_line()+
+    geom_point() +
+    xlab("Polynomial degree") + 
+    ylab("Deviance") +
+    ggtitle("Deviance values for each polynomial degree") +
+    scale_x_continuous(breaks = seq(0, 10, by = 1)) +
+    theme_minimal()
+```
+
+Vemos que há uma mudança brusca entre um e dois graus, contudo, temos pouca diferença entre 3 graus e 10 graus. Contudo, para termos um menor grau de liberdade, além de não ser muito significativo a diminuição da deviance, acredito que seria o melhor deixar o fit com apenas três graus polinomiais. 
+
+### Scatterplots indo de polinônios 1 até 10
+
+```{r, echo = FALSE, warning=FALSE}
+multiple_fits[[3]][1][[1]]
+multiple_fits[[3]][2][[1]]
+multiple_fits[[3]][3][[1]]
+multiple_fits[[3]][4][[1]]
+multiple_fits[[3]][5][[1]]
+multiple_fits[[3]][6][[1]]
+multiple_fits[[3]][7][[1]]
+multiple_fits[[3]][8][[1]]
+multiple_fits[[3]][9][[1]]
+multiple_fits[[3]][10][[1]]
+```
+
+Outro argumento para deixar como melhor grau até o terceiro: temos um intervalo de confiança menor para a estimativa na calda da variável independente. 
+
+Agora para o cross-validation, vou utilizar o LOOCV (leave one out cross validation), como temos um $n \approx 500$, não precisamos se preocupar com otimização computacional, caso precisarmos, utilizaríamos o k-fold cv. 
+Para calcular a estimativa do LOOCV, vamos utilizar a função cv.glm() da função base glm() sem a parametrização de uma familia (implica na função lm()).
+Vendo a documentação da função cv.glm():
+
+>  "The first component is the raw cross-validation estimate of prediction error. The second component is the adjusted cross-validation estimate. The adjustment is designed to compensate for the bias introduced by not using leave-one-out cross-validation."
+
+Portanto, utilizarei o primeiro valor da função delta. Plottando os valores:
+
+```{r}
+cross_validated_mse = multiple_fits[4][[1]]
+
+cv_plot = data.frame(xp, cross_validated_mse)
+
+cv_plot %>% 
+    ggplot(aes(xp, cross_validated_mse)) +
+    geom_line()+
+    geom_point(shape = 18, color = "darkred", size = 3) +
+    geom_text(label= round(cross_validated_mse, 5), hjust=0, vjust=-0.5) + 
+    xlab("Polynomial degree") + 
+    ylab("MSE") +
+    ggtitle("CV MSE versus Polynomial Degree") +
+    scale_x_continuous(breaks = seq(0, 11, by = 1), limits = c(0, 11)) +
+    theme_minimal()
+```
+
+Sendo assim, teremos como optimal degree o degree 3, pois é o que minimiza o erro quadrático médio da regressão pelo método de cross validation. 
+
+```{r}
+knitr::kable(cv_plot[cv_plot$cross_validated_mse == min(cv_plot$cross_validated_mse), ])
+```
+
+## Regressão com basic spline
+```{r}
+fit_bs = lm(nox ~ bs(dis, df = 4), data = df)
+summary(fit_bs)
+```
+
+Temos todos os graus de liberdade significativos, além de termos um $r^2 \approx 0.716$, bem próximo ao com a regressão polinomial. 
+
+```{r}
+conf_int_fit_bs = predict(fit_bs, interval = "confidence")
+bs_plot_values = cbind(df, conf_int_fit_bs)
+
+g1_bs = ggplot(bs_plot_values, aes(x=fit, y=nox)) +
+    geom_point(colour = "blue", shape=1) +
+    geom_abline(intercept=0, slope=1) +
+    labs(x='Predicted Values', y='Actual Values', title='Predicted vs. Actual Values') +
+    theme_minimal()
+
+g2_bs = ggplot(bs_plot_values, aes(x = dis, y = nox)) +
+    geom_point(colour = "blue", shape=1) +
+    geom_ribbon( aes(ymin = lwr, ymax = upr), alpha = .15) +
+    geom_line(aes(y = fit), linewidth = 0.8) +
+    theme_minimal() +
+    ggtitle("Scatter with regression line")
+
+(g1_bs | g2_bs)
+```
+
+Temos um resultado bem próximo ao metódo de regressão polinomial, o modelo não se ajustou bem aos valores mais longes $nox > 0.8$. 
+
+Farei uma alteração na função que utilizei antes, e assim
+```{r, warning = FALSE}
+bs_graph = function(data, i) {
+    g = as.data.frame(data) %>%
+                    ggplot(aes(x = independent, y = dependent)) +
+                    geom_point(colour = "black",  shape=1) +
+                    geom_ribbon( aes(ymin = lwr, ymax = upr), alpha = .15) +
+                    geom_line(aes(y = fit), linewidth = 1, colour = "red") +
+                    ylim(0.3, 0.9) +
+                    xlim(1, 12.5) +
+                    ggtitle(paste("Polynomial fit with degree ", i)) +
+                    theme_minimal()
+    
+    return(g)
+}
+
+alter_auto_fit = function(
+    to,
+    from,
+    dependent,
+    independent
+  ) 
+  {
+    df_return = c()
+    deviance = c()
+    graphs = c()
+    cv_values = c()
+    
+    for (i in to:from) {
+      temp_fit = lm(dependent ~ bs(independent, df = i))
+      glm_fit_cv = glm(dependent ~ bs(independent, df = i))
+      
+      pred_tmp = predict(temp_fit, interval = "confidence")
+      
+      conf_int_fit = cbind(dependent, independent, pred_tmp)
+      df_return[i] = list(conf_int_fit)
+      deviance[i] = deviance(temp_fit)
+      graphs[[i]] = bs_graph(conf_int_fit, i)
+      cv_values[i] = cv.glm(data.frame(dependent, independent), glm_fit_cv)$delta[1]
+    }
+  return(list(
+            df_return, 
+            deviance, 
+            graphs,
+            cv_values
+            )
+         )
+}
+
+bs_fits = alter_auto_fit(to = 4, from = 13, dependent = df$nox, independent = df$dis)
+```
+
+```{r}
+xp = seq(4, 13, by = 1)
+mp = bs_fits[2][[1]][4:13]
+
+d_v_bs = c(mp)
+names(d_v_bs) = c(xp)
+
+print(d_v_bs)
+
+data.frame(xp, mp) %>% 
+    ggplot(aes(xp, mp)) +
+    geom_line()+
+    geom_point() +
+    xlab("Degrees of Freedom") + 
+    geom_text(label= round(mp, 2), hjust=0, vjust=-0.5) +
+    ylab("Deviance") +
+    ggtitle("Deviance values for each increase in deegre of freedom") +
+    scale_x_continuous(breaks = seq(4, 13, by = 1)) +
+    theme_minimal()
+```
+
+Vemos que temos uma descida mais constante em comparação com o fit polinomial, contudo, vemos uma subida estranha no spline com 9 graus de liberdade. Além temos que o menor valor é o da regressão com 13 graus de liberdade, contudo, se fosse para escolher a melhor, eu escolheria a regressão com 10 graus de liberdade, pois ela tem uma diferença mínima de erro quadrático médio.
+
+```{r, echo = FALSE}
+bs_fits[[3]][4][[1]]
+bs_fits[[3]][5][[1]]
+bs_fits[[3]][6][[1]]
+bs_fits[[3]][7][[1]]
+bs_fits[[3]][8][[1]]
+bs_fits[[3]][9][[1]]
+bs_fits[[3]][10][[1]]
+bs_fits[[3]][11][[1]]
+bs_fits[[3]][12][[1]]
+bs_fits[[3]][13][[1]]
+```
+
+Percebemos que todas as regressões possuem uma estimativa mais aberta em questão aos intervalos de confiança para a calda direita. Sendo essa estimativa maior para cada aumento do grau de liberdade. Podemos mostrar empiricamente esse fato da seguinte forma
+
+```{r}
+diffs = c()
+
+for (i in 1:10) {
+  d = as.data.frame(bs_fits[[1]][4:13][[i]])
+  diffs[i] = sum(d$upr - d$lwr)
+}
+
+diffs
+
+data.frame(xp, diffs) %>% 
+    ggplot(aes(xp, diffs)) +
+    geom_line()+
+    geom_point() +
+    xlab("Degrees of Freedom") + 
+    ylab("Difference between upper and lower intervals") +
+    geom_text(label= round(diffs, 5), hjust=-0.2, vjust=0) +
+    scale_x_continuous(limits = c(4, 15), breaks = seq(4, 15, by = 1)) +
+    theme_minimal()
+```
+
+Utilizando o método de cross-validation novamente, mas agora para a função de spline.
+```{r}
+d_v_bs = c(mp)
+names(d_v_bs) = xp
+
+print(d_v_bs)
+```
+
+```{r}
+cross_validated_mse_bs = bs_fits[[4]][4:13]
+
+d_v_bs = c(cross_validated_mse_bs)
+names(d_v_bs) = c(xp)
+print(d_v_bs)
+
+data.frame(xp, cross_validated_mse_bs) %>% 
+    ggplot(aes(xp, cross_validated_mse_bs)) +
+    geom_line()+
+    geom_point(shape = 18, color = "darkred", size = 3) +
+    geom_text(label= round(cross_validated_mse_bs, 6), hjust=0, vjust=-0.5) + 
+    xlab("Polynomial degree") + 
+    ylab("MSE") +
+    ggtitle("CV MSE versus Polynomial Degree") +
+    scale_x_continuous(breaks = seq(4, 14, by = 1), limits = c(4, 14)) +
+    theme_minimal()
+```
+
+Percebemos uma diminuição brusca de 4 para 5 graus de liberdade, além disso, escolhemos como melhor grau o grau 10, pois ele minimizou o erro quadrático médio da cross validation. Contudo, poderíamos escolher o grau de liberdade 5, pois não houve mudança muito significativa entre o grau 5 e o grau 10. 
