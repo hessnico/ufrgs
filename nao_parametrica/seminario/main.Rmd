@@ -1,0 +1,121 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r}
+requiredPackages <- c("ggplot2","tidyverse", "ggExtra", "ggpubr", "tree", "GGally", "corrplot", "patchwork","caret", "randomForest")
+for (package in requiredPackages) {
+  if (!requireNamespace(package, quietly = TRUE)) {
+    install.packages(package)
+  }
+  library(package, character.only = TRUE)
+}
+```
+
+```{r}
+df = read.csv("creditcard.csv")
+
+df_not_fraud = df[df$Class == 0, ]
+df_fraud = df[df$Class == 1, ]
+
+
+df_not_fraud = df_not_fraud[sample(nrow(df_not_fraud), nrow(df_not_fraud)/2), ]
+
+nrow(df_not_fraud)
+nrow(df_fraud)
+df = rbind(df_fraud, df_not_fraud)
+nrow(df)
+head(df)
+```
+
+```{r}
+nrow_train = floor(nrow(df) * 0.75)
+nrow_test = floor(nrow(df) * 0.25) + 1
+
+set.seed(1234)
+random_sample = sample(nrow(df), size = nrow(df), replace = F)
+
+train_len = random_sample[1:nrow_train]
+length(train_len)
+
+test_len = tail(random_sample, n = nrow_test)
+length(test_len)
+
+test = df[test_len, ] 
+train = df[train_len, ]
+
+table(test$Class)
+table(train$Class)
+table(df$Class)
+```
+ 
+
+```{r}
+corrplot(cor(df), method = 'color')
+```
+
+```{r}
+freq = data.frame(table(df$Class))
+
+freq_plot = ggplot(data = freq, aes(x = Var1, y = Freq, fill = Var1)) +
+    geom_bar(stat="identity") +
+    geom_text(aes(label=Freq), vjust=1.6, color="black", size=3.5) +
+    theme_classic() +
+    scale_y_log10()
+
+p1 <- ggplot(data = df, aes(x = Amount, after_stat(density))) + 
+    geom_histogram(bins = 50, fill="cyan", color = "black") +
+    theme_classic()
+
+p2 <- ggplot(data = df, aes(x = Time)) + 
+    geom_histogram(bins = 50, fill="cyan", color = "black") +
+    theme_classic() 
+
+freq_plot /
+(p1|p2)
+```
+
+```{r}
+rf_model = randomForest(formula= as.factor(Class) ~. ,
+             data = train, 
+             do.trace = TRUE, 
+             ntree = 25,
+             importance=TRUE)
+
+summary(rf_model)
+print(rf_model)
+
+plot(rf_model)
+
+test$predicted <- predict(rf_model, test)
+
+cmrF = confusionMatrix(factor(test$Class), factor(test$predicted))
+
+cmrF$table
+cmrF
+
+
+train$predicted = predict(rf_model, train)
+
+randomForest::varImpPlot(rf_model,
+                         sort=FALSE,
+                         main="Variable Importance Plot")
+```
+
+```{r}
+test = df[test_len, ] 
+train = df[train_len, ]
+tree_model = tree(formula= as.factor(Class) ~ ., 
+                  data = train)
+
+summary(tree_model)
+plot(tree_model)
+
+test$predicted <- predict(tree_model, test, type = "class")
+
+confusionMatrix(factor(test$Class), factor(test$predicted))
+```
+
