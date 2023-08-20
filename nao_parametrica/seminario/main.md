@@ -8,105 +8,33 @@ output:
 
 
 
+## Banco de dados 
 
-```r
-requiredPackages <- c("ggplot2","tidyverse", "ggExtra", "ggpubr", "tree", "GGally", "corrplot", "patchwork","caret", "randomForest")
-for (package in requiredPackages) {
-  if (!requireNamespace(package, quietly = TRUE)) {
-    install.packages(package)
-  }
-  library(package, character.only = TRUE)
-}
-```
-
-```
-## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
-## ✔ dplyr     1.1.2     ✔ readr     2.1.4
-## ✔ forcats   1.0.0     ✔ stringr   1.5.0
-## ✔ lubridate 1.9.2     ✔ tibble    3.2.1
-## ✔ purrr     1.0.1     ✔ tidyr     1.3.0
-## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-## ✖ dplyr::filter() masks stats::filter()
-## ✖ dplyr::lag()    masks stats::lag()
-## ℹ Use the conflicted package (<http://conflicted.r-lib.org/>) to force all conflicts to become errors
-## Registered S3 method overwritten by 'GGally':
-##   method from   
-##   +.gg   ggplot2
-## 
-## corrplot 0.92 loaded
-## 
-## Loading required package: lattice
-## 
-## 
-## Attaching package: 'caret'
-## 
-## 
-## The following object is masked from 'package:purrr':
-## 
-##     lift
-## 
-## 
-## randomForest 4.7-1.1
-## 
-## Type rfNews() to see new features/changes/bug fixes.
-## 
-## 
-## Attaching package: 'randomForest'
-## 
-## 
-## The following object is masked from 'package:dplyr':
-## 
-##     combine
-## 
-## 
-## The following object is masked from 'package:ggplot2':
-## 
-##     margin
-```
-
+### Construção do banco 
 
 ```r
 df = read.csv("creditcard.csv")
 
+ratio_antes = round(nrow(df[df$Class == 1, ]) / nrow(df), 4) * 100
+
 df_not_fraud = df[df$Class == 0, ]
 df_fraud = df[df$Class == 1, ]
 
+df_not_fraud = df_not_fraud[sample(nrow(df_not_fraud), nrow(df_not_fraud)/4), ]
 
-df_not_fraud = df_not_fraud[sample(nrow(df_not_fraud), nrow(df_not_fraud)/2), ]
-
-nrow(df_not_fraud)
-```
-
-```
-## [1] 142157
-```
-
-```r
-nrow(df_fraud)
-```
-
-```
-## [1] 492
-```
-
-```r
 df = rbind(df_fraud, df_not_fraud)
-nrow(df)
+ratio_depois = round(nrow(df_fraud) / nrow(df), 4) * 100
 ```
 
-```
-## [1] 142649
-```
+Pelo fato do bancos ser muito desbalanceado e computacionalmente muito complicado de trabalhar, decidi pegar 25% dos casos com sem fraude e manter os casos com fraudes. Tinhamos um ratio de 0.17% (total de casos com fraude / total de casos), amostrei aleatoriamente entre os casos não fraudolentos e manti todas as fraudes do banco, ficando com um ratio de 0.69%. 
+Além, a subamostragem de casos assim, ajuda os modelos de regressão como árvores para chegar na convergência mais rapidamente. No momento de utilizar o modelo, devemos usar os paramêtros de peso.
+Para comparar, utilizaremos a estatística Kappa, pois ela trabalha com os valores esperados de cada proporção.
+A fórmula dela se dá 
+$$
+\kappa = \frac{precisao \ - \mathbb{E}(precisao)}{1 - \mathbb{E}(precisao)}
+$$
 
-```r
-head(df)
-```
-
-<div data-pagedtable="false">
-  <script data-pagedtable-source type="application/json">
-{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["Time"],"name":[1],"type":["dbl"],"align":["right"]},{"label":["V1"],"name":[2],"type":["dbl"],"align":["right"]},{"label":["V2"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["V3"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["V4"],"name":[5],"type":["dbl"],"align":["right"]},{"label":["V5"],"name":[6],"type":["dbl"],"align":["right"]},{"label":["V6"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["V7"],"name":[8],"type":["dbl"],"align":["right"]},{"label":["V8"],"name":[9],"type":["dbl"],"align":["right"]},{"label":["V9"],"name":[10],"type":["dbl"],"align":["right"]},{"label":["V10"],"name":[11],"type":["dbl"],"align":["right"]},{"label":["V11"],"name":[12],"type":["dbl"],"align":["right"]},{"label":["V12"],"name":[13],"type":["dbl"],"align":["right"]},{"label":["V13"],"name":[14],"type":["dbl"],"align":["right"]},{"label":["V14"],"name":[15],"type":["dbl"],"align":["right"]},{"label":["V15"],"name":[16],"type":["dbl"],"align":["right"]},{"label":["V16"],"name":[17],"type":["dbl"],"align":["right"]},{"label":["V17"],"name":[18],"type":["dbl"],"align":["right"]},{"label":["V18"],"name":[19],"type":["dbl"],"align":["right"]},{"label":["V19"],"name":[20],"type":["dbl"],"align":["right"]},{"label":["V20"],"name":[21],"type":["dbl"],"align":["right"]},{"label":["V21"],"name":[22],"type":["dbl"],"align":["right"]},{"label":["V22"],"name":[23],"type":["dbl"],"align":["right"]},{"label":["V23"],"name":[24],"type":["dbl"],"align":["right"]},{"label":["V24"],"name":[25],"type":["dbl"],"align":["right"]},{"label":["V25"],"name":[26],"type":["dbl"],"align":["right"]},{"label":["V26"],"name":[27],"type":["dbl"],"align":["right"]},{"label":["V27"],"name":[28],"type":["dbl"],"align":["right"]},{"label":["V28"],"name":[29],"type":["dbl"],"align":["right"]},{"label":["Amount"],"name":[30],"type":["dbl"],"align":["right"]},{"label":["Class"],"name":[31],"type":["int"],"align":["right"]}],"data":[{"1":"406","2":"-2.312226542","3":"1.951992","4":"-1.6098507","5":"3.997906","6":"-0.5221879","7":"-1.42654532","8":"-2.5373873","9":"1.39165725","10":"-2.7700893","11":"-2.7722721","12":"3.2020332","13":"-2.8999074","14":"-0.59522188","15":"-4.289254","16":"0.389724120","17":"-1.1407472","18":"-2.8300557","19":"-0.01682247","20":"0.4169557","21":"0.126910559","22":"0.5172324","23":"-0.03504937","24":"-0.4652111","25":"0.32019820","26":"0.04451917","27":"0.1778398","28":"0.26114500","29":"-0.14327587","30":"0.00","31":"1","_rn_":"542"},{"1":"472","2":"-3.043540624","3":"-3.157307","4":"1.0884628","5":"2.288644","6":"1.3598051","7":"-1.06482252","8":"0.3255743","9":"-0.06779365","10":"-0.2709528","11":"-0.8385866","12":"-0.4145754","13":"-0.5031409","14":"0.67650154","15":"-1.692029","16":"2.000634839","17":"0.6667797","18":"0.5997174","19":"1.72532101","20":"0.2833448","21":"2.102338793","22":"0.6616959","23":"0.43547721","24":"1.3759657","25":"-0.29380315","26":"0.27979803","27":"-0.1453617","28":"-0.25277312","29":"0.03576423","30":"529.00","31":"1","_rn_":"624"},{"1":"4462","2":"-2.303349568","3":"1.759247","4":"-0.3597447","5":"2.330243","6":"-0.8216283","7":"-0.07578757","8":"0.5623198","9":"-0.39914658","10":"-0.2382534","11":"-1.5254116","12":"2.0329122","13":"-6.5601243","14":"0.02293732","15":"-1.470102","16":"-0.698826069","17":"-2.2821938","18":"-4.7818309","19":"-2.61566494","20":"-1.3344411","21":"-0.430021867","22":"-0.2941663","23":"-0.93239106","24":"0.1727263","25":"-0.08732954","26":"-0.15611426","27":"-0.5426279","28":"0.03956599","29":"-0.15302880","30":"239.93","31":"1","_rn_":"4921"},{"1":"6986","2":"-4.397974442","3":"1.358367","4":"-2.5928442","5":"2.679787","6":"-1.1281309","7":"-1.70653639","8":"-3.4961973","9":"-0.24877774","10":"-0.2477679","11":"-4.8016374","12":"4.8958442","13":"-10.9128193","14":"0.18437169","15":"-6.771097","16":"-0.007326183","17":"-7.3580832","18":"-12.5984185","19":"-5.13154863","20":"0.3083339","21":"-0.171607879","22":"0.5735741","23":"0.17696772","24":"-0.4362069","25":"-0.05350186","26":"0.25240526","27":"-0.6574878","28":"-0.82713571","29":"0.84957338","30":"59.00","31":"1","_rn_":"6109"},{"1":"7519","2":"1.234235046","3":"3.019740","4":"-4.3045969","5":"4.732795","6":"3.6242008","7":"-1.35774566","8":"1.7134450","9":"-0.49635849","10":"-1.2828578","11":"-2.4474693","12":"2.1013439","13":"-4.6096284","14":"1.46437762","15":"-6.079337","16":"-0.339237373","17":"2.5818510","18":"6.7393844","19":"3.04249318","20":"-2.7218531","21":"0.009060836","22":"-0.3790683","23":"-0.70418103","24":"-0.6568048","25":"-1.63265296","26":"1.48890145","27":"0.5667973","28":"-0.01001622","29":"0.14679273","30":"1.00","31":"1","_rn_":"6330"},{"1":"7526","2":"0.008430365","3":"4.137837","4":"-6.2406966","5":"6.675732","6":"0.7683070","7":"-3.35305955","8":"-1.6317347","9":"0.15461245","10":"-2.7958925","11":"-6.1878906","12":"5.6643947","13":"-9.8544848","14":"-0.30616666","15":"-10.691196","16":"-0.638498193","17":"-2.0419738","18":"-1.1290559","19":"0.11645252","20":"-1.9346657","21":"0.488378221","22":"0.3645142","23":"-0.60805713","24":"-0.5395279","25":"0.12893998","26":"1.48848121","27":"0.5079627","28":"0.73582164","29":"0.51357374","30":"1.00","31":"1","_rn_":"6332"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
-  </script>
-</div>
+Montando o banco de teste e treinamento, além das tabelas de frequência para a nossa varíavel dependente
 
 
 ```r
@@ -117,63 +45,67 @@ set.seed(1234)
 random_sample = sample(nrow(df), size = nrow(df), replace = F)
 
 train_len = random_sample[1:nrow_train]
-length(train_len)
+paste("Tamanho amostral do dataframe de treino: ", length(train_len))
 ```
 
 ```
-## [1] 106986
+## [1] "Tamanho amostral do dataframe de treino:  53677"
 ```
 
 ```r
 test_len = tail(random_sample, n = nrow_test)
-length(test_len)
+paste("Tamanho amostral do dataframe de teste: ", length(test_len))
 ```
 
 ```
-## [1] 35663
+## [1] "Tamanho amostral do dataframe de teste:  17893"
 ```
 
 ```r
 test = df[test_len, ] 
 train = df[train_len, ]
 
+# tabela de frequência para teste
 table(test$Class)
 ```
 
 ```
 ## 
 ##     0     1 
-## 35545   118
+## 17763   130
 ```
 
 ```r
+#tabela de freq para treino
 table(train$Class)
 ```
 
 ```
 ## 
-##      0      1 
-## 106612    374
+##     0     1 
+## 53315   362
 ```
 
 ```r
+#tabela total
 table(df$Class)
 ```
 
 ```
 ## 
-##      0      1 
-## 142157    492
+##     0     1 
+## 71078   492
 ```
  
-
+Gráfico de correlação
 
 ```r
 corrplot(cor(df), method = 'color')
 ```
 
-![](main_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
+![](main_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
 
+Um pouco de análise exploratória
 
 ```r
 freq = data.frame(table(df$Class))
@@ -181,210 +113,99 @@ freq = data.frame(table(df$Class))
 freq_plot = ggplot(data = freq, aes(x = Var1, y = Freq, fill = Var1)) +
     geom_bar(stat="identity") +
     geom_text(aes(label=Freq), vjust=1.6, color="black", size=3.5) +
+    theme_classic()
+
+freq_plot_log = ggplot(data = freq, aes(x = Var1, y = Freq, fill = Var1)) +
+    geom_bar(stat="identity") +
+    geom_text(aes(label=Freq), vjust=1.6, color="black", size=3.5) +
     theme_classic() +
-    scale_y_log10()
+  scale_y_continuous(trans='log2')
 
 p1 <- ggplot(data = df, aes(x = Amount, after_stat(density))) + 
     geom_histogram(bins = 50, fill="cyan", color = "black") +
-    theme_classic()
+    theme_bw()
 
-p2 <- ggplot(data = df, aes(x = Time)) + 
-    geom_histogram(bins = 50, fill="cyan", color = "black") +
-    theme_classic() 
+dfplot = df
+dfplot$Class = as.factor(dfplot$Class)
+
+p2 <- ggplot(data = dfplot) + 
+    geom_density(color = "black", aes(x = Time, group = Class, fill = Class), alpha = 0.5) +
+    theme_bw()
 
 freq_plot /
+freq_plot_log /
 (p1|p2)
+```
+
+![](main_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
+
+
+
+```r
+# transform to long format (2 columns)
+plot_df = df %>% select(-Amount, -Class, -Time) %>% gather(key = "name", value = "value")
+
+# plot histigrams per name
+ggplot(plot_df) +
+  geom_histogram(aes(value), bins = 30) +
+  theme_bw() + 
+  facet_wrap(~name, ncol = 7, scales = "free_x")
 ```
 
 ![](main_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
 
+## Métodos de regressão 
 
-```r
-rf_model = randomForest(formula= as.factor(Class) ~. ,
-             data = train, 
-             do.trace = TRUE, 
-             ntree = 25)
-```
-
-```
-## ntree      OOB      1      2
-##     1:   0.19%  0.09% 26.35%
-##     2:   0.18%  0.09% 24.58%
-##     3:   0.18%  0.09% 24.75%
-##     4:   0.17%  0.08% 23.91%
-##     5:   0.16%  0.08% 23.68%
-##     6:   0.14%  0.06% 24.51%
-##     7:   0.13%  0.05% 23.27%
-##     8:   0.12%  0.04% 24.04%
-##     9:   0.12%  0.04% 23.10%
-##    10:   0.12%  0.04% 23.51%
-##    11:   0.11%  0.03% 21.89%
-##    12:   0.10%  0.02% 22.37%
-##    13:   0.10%  0.02% 22.58%
-##    14:   0.10%  0.02% 22.25%
-##    15:   0.10%  0.02% 21.72%
-##    16:   0.10%  0.02% 22.46%
-##    17:   0.10%  0.02% 22.19%
-##    18:   0.09%  0.02% 21.93%
-##    19:   0.09%  0.02% 22.19%
-##    20:   0.10%  0.02% 22.99%
-##    21:   0.10%  0.02% 22.99%
-##    22:   0.10%  0.02% 22.73%
-##    23:   0.10%  0.02% 23.26%
-##    24:   0.09%  0.02% 21.93%
-##    25:   0.09%  0.02% 22.19%
-```
-
-```r
-summary(rf_model)
-```
-
-```
-##                 Length Class  Mode     
-## call                 5 -none- call     
-## type                 1 -none- character
-## predicted       106986 factor numeric  
-## err.rate            75 -none- numeric  
-## confusion            6 -none- numeric  
-## votes           213972 matrix numeric  
-## oob.times       106986 -none- numeric  
-## classes              2 -none- character
-## importance          30 -none- numeric  
-## importanceSD         0 -none- NULL     
-## localImportance      0 -none- NULL     
-## proximity            0 -none- NULL     
-## ntree                1 -none- numeric  
-## mtry                 1 -none- numeric  
-## forest              14 -none- list     
-## y               106986 factor numeric  
-## test                 0 -none- NULL     
-## inbag                0 -none- NULL     
-## terms                3 terms  call
-```
-
-```r
-print(rf_model)
-```
-
-```
-## 
-## Call:
-##  randomForest(formula = as.factor(Class) ~ ., data = train, do.trace = TRUE,      ntree = 25) 
-##                Type of random forest: classification
-##                      Number of trees: 25
-## No. of variables tried at each split: 5
-## 
-##         OOB estimate of  error rate: 0.09%
-## Confusion matrix:
-##        0   1  class.error
-## 0 106592  16 0.0001500825
-## 1     83 291 0.2219251337
-```
-
-```r
-plot(rf_model)
-```
-
-![](main_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
-
-```r
-test$predicted <- predict(rf_model, test)
-
-cmrF = confusionMatrix(factor(test$Class), factor(test$predicted))
-
-cmrF$table
-```
-
-```
-##           Reference
-## Prediction     0     1
-##          0 35541     4
-##          1    16   102
-```
-
-```r
-cmrF$overall[["Kappa"]]
-```
-
-```
-## [1] 0.9104338
-```
-
-```r
-cmrF
-```
-
-```
-## Confusion Matrix and Statistics
-## 
-##           Reference
-## Prediction     0     1
-##          0 35541     4
-##          1    16   102
-##                                           
-##                Accuracy : 0.9994          
-##                  95% CI : (0.9991, 0.9997)
-##     No Information Rate : 0.997           
-##     P-Value [Acc > NIR] : < 2e-16         
-##                                           
-##                   Kappa : 0.9104          
-##                                           
-##  Mcnemar's Test P-Value : 0.01391         
-##                                           
-##             Sensitivity : 0.9996          
-##             Specificity : 0.9623          
-##          Pos Pred Value : 0.9999          
-##          Neg Pred Value : 0.8644          
-##              Prevalence : 0.9970          
-##          Detection Rate : 0.9966          
-##    Detection Prevalence : 0.9967          
-##       Balanced Accuracy : 0.9809          
-##                                           
-##        'Positive' Class : 0               
-## 
-```
-
-```r
-train$predicted = predict(rf_model, train)
-
-randomForest::varImpPlot(rf_model,
-                         sort=TRUE,
-                         main="Variable Importance Plot")
-```
-
-![](main_files/figure-gfm/unnamed-chunk-7-2.png)<!-- -->
-
+Primeiro vamos começar pela regressão logística, depois vamos fazer uma árvore com diferentes parâmetros de complexidade e, por fim, utilizar boosting para fazer um random forest. 
 
 ```r
 test = df[test_len, ] 
 train = df[train_len, ]
-tree_model = tree(formula= as.factor(Class) ~ ., 
-                  data = train)
 
-summary(tree_model)
+#w = case_when(
+#  train$Class == 0 ~ 4,
+#  train$Class == 1 ~ 1
+#)
+
+logit_model = glm(formula= factor(Class) ~ ., 
+                  data = train,
+                  family = binomial(link = "logit"))
 ```
 
 ```
-## 
-## Classification tree:
-## tree(formula = as.factor(Class) ~ ., data = train)
-## Variables actually used in tree construction:
-## [1] "V14" "V10" "V17" "V4" 
-## Number of terminal nodes:  5 
-## Residual mean deviance:  0.01197 = 1280 / 107000 
-## Misclassification error rate: 0.001047 = 112 / 106986
+## Warning: glm.fit: fitted probabilities numerically 0 or 1 occurred
 ```
 
 ```r
-plot(tree_model)
+test$predicted <- predict(logit_model, test, type = "response")
+pred <- prediction(test$predicted, test$Class)
+
+perf <- performance(pred,"tpr","fpr")
+
+ROCR_perf_test <- performance(pred, 'tpr','fpr')
+plot(ROCR_perf_test,colorize=TRUE,print.cutoffs.at=seq(0.1,by=0.1))
 ```
 
-![](main_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+![](main_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
+
 
 ```r
-test$predicted <- predict(tree_model, test, type = "class")
+getKappaStatistic = function(cm) {
+	kappa = cm$overall["Kappa"]
+	return(kappa)
+}
 
-confusionMatrix(factor(test$Class), factor(test$predicted))
+getTotalErros = function(cm) {
+  return(sum(as.numeric(cm$table)[c(2, 3)]))  
+}
+# real cutoff
+ROCR_perf_test <- performance(pred, 'cost', cost.fp = 1.1, cost.fn = 0.7)
+cutoff_point = pred@cutoffs[[1]][which.min(ROCR_perf_test@y.values[[1]])]
+
+test$predicted <- predict(logit_model, test, type = "response")
+
+cf_GLM_cost_weights = confusionMatrix(as.factor(test$Class), as.factor(as.numeric(test$predicted > cutoff_point)))
+cf_GLM_cost_weights
 ```
 
 ```
@@ -392,28 +213,389 @@ confusionMatrix(factor(test$Class), factor(test$predicted))
 ## 
 ##           Reference
 ## Prediction     0     1
-##          0 35532    13
-##          1    14   104
+##          0 17756     7
+##          1    24   106
 ##                                           
-##                Accuracy : 0.9992          
-##                  95% CI : (0.9989, 0.9995)
-##     No Information Rate : 0.9967          
-##     P-Value [Acc > NIR] : <2e-16          
+##                Accuracy : 0.9983          
+##                  95% CI : (0.9975, 0.9988)
+##     No Information Rate : 0.9937          
+##     P-Value [Acc > NIR] : < 2.2e-16       
 ##                                           
-##                   Kappa : 0.8847          
+##                   Kappa : 0.8716          
 ##                                           
-##  Mcnemar's Test P-Value : 1               
+##  Mcnemar's Test P-Value : 0.004057        
 ##                                           
-##             Sensitivity : 0.9996          
-##             Specificity : 0.8889          
+##             Sensitivity : 0.9987          
+##             Specificity : 0.9381          
 ##          Pos Pred Value : 0.9996          
-##          Neg Pred Value : 0.8814          
-##              Prevalence : 0.9967          
-##          Detection Rate : 0.9963          
-##    Detection Prevalence : 0.9967          
-##       Balanced Accuracy : 0.9442          
+##          Neg Pred Value : 0.8154          
+##              Prevalence : 0.9937          
+##          Detection Rate : 0.9923          
+##    Detection Prevalence : 0.9927          
+##       Balanced Accuracy : 0.9684          
 ##                                           
 ##        'Positive' Class : 0               
 ## 
 ```
+
+```r
+glm_kappa = getKappaStatistic(cf_GLM_cost_weights)
+```
+
+Para as árvores, teremos três diferentes, utilzarei o argumento da funçao chamado cp, pela documentação temos que 
+> cp : the amount by which splitting that node improved the relative error.
+
+Ou seja, estamos setando o valor necessário de melhoria no erro relativo para criarmos um novo nodo.
+
+```r
+## cp :  the amount by which splitting that node improved the relative error.
+
+plot_tree_importance_variables = function(tree_m) {
+  df <- data.frame(imp = tree_m$variable.importance)
+  df2 <- df %>% 
+    tibble::rownames_to_column() %>% 
+    dplyr::rename("variable" = rowname) %>% 
+    dplyr::arrange(imp) %>%
+    dplyr::mutate(variable = forcats::fct_inorder(variable))
+  ggplot2::ggplot(df2) +
+    geom_col(aes(x = variable, y = imp),
+             col = "black", show.legend = F) +
+    coord_flip() +
+    scale_fill_grey() +
+    theme_bw()
+}
+
+set.seed(654)
+tree_model_rpart_cp1 = rpart(as.factor(Class) ~ .,
+                         data = train, 
+                         control = rpart.control(cp=.1),
+                         xval = 25)
+
+tree_model_rpart_cp01 = rpart(as.factor(Class) ~ .,
+                         data = train, 
+                         control = rpart.control(cp=.01),
+                         xval = 25)
+
+tree_model_rpart_cp001 = rpart(as.factor(Class) ~ .,
+                         data = train, 
+                         control = rpart.control(cp=.001),
+                         xval = 25)
+
+library(rpart.plot)
+
+prp(tree_model_rpart_cp1,
+    faclen=0, 
+    extra=1,
+    roundint=F, 
+    digits=5,
+    main ="arvore de decisao com parametro de .1",)
+```
+
+![](main_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
+
+```r
+prp(tree_model_rpart_cp01,
+    faclen=0,
+    extra=1,
+    digits = 4,
+    roundint=T,
+    main ="arvore de decisao com parametro de .01",)
+```
+
+![](main_files/figure-gfm/unnamed-chunk-9-2.png)<!-- -->
+
+```r
+prp(tree_model_rpart_cp001,
+    faclen=0,
+    extra=1, 
+    roundint=F, 
+    digits=5,
+    main ="arvore de decisao com parametro de .001",)
+```
+
+![](main_files/figure-gfm/unnamed-chunk-9-3.png)<!-- -->
+
+```r
+p1 = plot_tree_importance_variables(tree_model_rpart_cp1)
+p2 = plot_tree_importance_variables(tree_model_rpart_cp01)
+p3 = plot_tree_importance_variables(tree_model_rpart_cp001)
+
+p1
+```
+
+![](main_files/figure-gfm/unnamed-chunk-9-4.png)<!-- -->
+
+```r
+p2
+```
+
+![](main_files/figure-gfm/unnamed-chunk-9-5.png)<!-- -->
+
+```r
+p3
+```
+
+![](main_files/figure-gfm/unnamed-chunk-9-6.png)<!-- -->
+
+Aqui utilizei o melhor valor do paramêtro cp para fazer a poda da árvore 
+
+```r
+pruneTree_findCP_printCM = function(tree_m, test_data, save.data = FALSE) {
+  best_cp <- tree_m$cptable[which.min(tree_m$cptable[,"xerror"]),"CP"]
+  pruned_tree <- prune(tree_m, cp=best_cp)
+  
+  test_data$predicted <- predict(pruned_tree, test, type = "class")
+  cm = confusionMatrix(factor(test_data$Class), factor(test_data$predicted))
+  
+  kappa = cm$overall["Kappa"]
+  total_erros = getTotalErros(cm)
+  
+  print(cm$table)
+  
+  if(save.data == TRUE) {
+    return(list(kappa, total_erros))
+  }
+}
+
+k1 = pruneTree_findCP_printCM(tree_model_rpart_cp1, test, save.data = T)
+```
+
+```
+##           Reference
+## Prediction     0     1
+##          0 17760     3
+##          1    36    94
+```
+
+```r
+k2 = pruneTree_findCP_printCM(tree_model_rpart_cp01, test, save.data = T)
+```
+
+```
+##           Reference
+## Prediction     0     1
+##          0 17757     6
+##          1    19   111
+```
+
+```r
+k3 = pruneTree_findCP_printCM(tree_model_rpart_cp001, test, save.data = T)
+```
+
+```
+##           Reference
+## Prediction     0     1
+##          0 17760     3
+##          1    22   108
+```
+
+```r
+k1[[1]]; k2[[1]]; k3[[1]]
+```
+
+```
+##     Kappa 
+## 0.8271204
+```
+
+```
+##     Kappa 
+## 0.8980839
+```
+
+```
+##     Kappa 
+## 0.8955666
+```
+
+Por fim, vamos escolher o valor de cp = .001 como o melhor para o fitting.
+Logo, temos essa como a nossa árvore principal
+
+```r
+best_cp <- tree_model_rpart_cp001$cptable[which.min(tree_model_rpart_cp001$cptable[,"xerror"]),"CP"]
+pruned_tree <- prune(tree_model_rpart_cp001, cp=best_cp)
+
+prp(pruned_tree,
+    faclen=0, 
+    extra=1, 
+    roundint=F, 
+    digits=5)
+```
+
+![](main_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
+
+## Random Forest
+Primeiro vamos encontrar o valor ótimo do argumento mtry, existe um regra de bolso para ele, do qual teremos $mtry = p / 3$ Para modelos de classificação. 
+
+```r
+mtry = max(floor((length(train)-1)/3), 1)
+
+predictor_variables = train %>% select(-Class)
+dependent_variable = as.factor(train$Class)
+
+set.seed(654)
+optimal_mtry_forest = tuneRF(
+            x= predictor_variables,
+            y= dependent_variable,
+            mtryStart = mtry,
+            ntreeTry=250,
+            stepFactor=2,
+            improve=0.05,
+            trace=TRUE, 
+            plot=TRUE, 
+            doBest=FALSE)
+```
+
+```
+## mtry = 10  OOB error = 0.15% 
+## Searching left ...
+## mtry = 5 	OOB error = 0.16% 
+## -0.06329114 0.05 
+## Searching right ...
+## mtry = 20 	OOB error = 0.15% 
+## 0.01265823 0.05
+```
+
+![](main_files/figure-gfm/unnamed-chunk-12-1.png)<!-- -->
+
+
+```r
+df_mtry = data.frame(optimal_mtry_forest)
+mtry = df_mtry$mtry[which.min(df_mtry$OOBError)]
+```
+
+O argumento mtry controla quanta aleatoriedade é adicionada ao modelo de decisão.
+Percebemos que utilizar o mtry = 20 tem o menor OOB Error, então continuares com ele. 
+
+```r
+test = df[test_len, ] 
+train = df[train_len, ]
+
+set.seed(654)
+ntrees = 500
+
+rf_model_principal = randomForest(formula= as.factor(Class) ~.,
+             data = train, 
+             ntree = ntrees,
+             mtry = mtry)
+
+randomForest::varImpPlot(rf_model_principal,
+                         type = 2,
+                         sort=TRUE,
+                         main="Importância de variáveis")
+```
+
+![](main_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
+
+```r
+data.frame(rf_model_principal$err.rate) %>% 
+    select(-X0) %>%
+        ggplot(aes(x = seq(1:ntrees), y=X1)) +
+        geom_line(linetype = "dashed", color = 'green', size = 0.7) +
+        theme_bw() +
+        lims(y = c(0, 0.35)) +
+        labs(x="trees", y = "Error", title = "Erro da árvore por iteração")
+```
+
+```
+## Warning: Using `size` aesthetic for lines was deprecated in ggplot2 3.4.0.
+## ℹ Please use `linewidth` instead.
+## This warning is displayed once every 8 hours.
+## Call `lifecycle::last_lifecycle_warnings()` to see where this warning was
+## generated.
+```
+
+![](main_files/figure-gfm/unnamed-chunk-14-2.png)<!-- -->
+
+```r
+test$predicted <- predict(rf_model_principal, test, type = "class")
+cm_RF = confusionMatrix(factor(test$Class), factor(test$predicted))
+
+rm_kappa = getKappaStatistic(cm_RF)
+
+cm_RF
+```
+
+```
+## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction     0     1
+##          0 17760     3
+##          1    18   112
+##                                           
+##                Accuracy : 0.9988          
+##                  95% CI : (0.9982, 0.9993)
+##     No Information Rate : 0.9936          
+##     P-Value [Acc > NIR] : < 2e-16         
+##                                           
+##                   Kappa : 0.9137          
+##                                           
+##  Mcnemar's Test P-Value : 0.00225         
+##                                           
+##             Sensitivity : 0.9990          
+##             Specificity : 0.9739          
+##          Pos Pred Value : 0.9998          
+##          Neg Pred Value : 0.8615          
+##              Prevalence : 0.9936          
+##          Detection Rate : 0.9926          
+##    Detection Prevalence : 0.9927          
+##       Balanced Accuracy : 0.9865          
+##                                           
+##        'Positive' Class : 0               
+## 
+```
+
+
+![](main_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
+
+## Conclusoes
+
+
+```r
+name = c("GLM Binomial Logit", "Tree com cp = .1", "Tree com cp = .01", "Tree com cp = .001", "Random Forest")
+kappas = c(glm_kappa, k1[[1]], k2[[1]], k3[[1]], rm_kappa)
+
+valores_errados = c(getTotalErros(cf_GLM_cost_weights),
+                    k1[[2]],
+                    k2[[2]],
+                    k3[[2]],
+                    getTotalErros(cm_RF))
+
+res = matrix(NA, nrow = 2, ncol = 5)
+colnames(res) = name
+res[1, ] = kappas
+res[2, ] = as.integer(valores_errados)
+
+kable(res) %>%
+    kable_styling(latex_options = "hold_position")
+```
+
+<table class="table" style="margin-left: auto; margin-right: auto;">
+ <thead>
+  <tr>
+   <th style="text-align:right;"> GLM Binomial Logit </th>
+   <th style="text-align:right;"> Tree com cp = .1 </th>
+   <th style="text-align:right;"> Tree com cp = .01 </th>
+   <th style="text-align:right;"> Tree com cp = .001 </th>
+   <th style="text-align:right;"> Random Forest </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:right;"> 0.8715601 </td>
+   <td style="text-align:right;"> 0.8271204 </td>
+   <td style="text-align:right;"> 0.8980839 </td>
+   <td style="text-align:right;"> 0.8955666 </td>
+   <td style="text-align:right;"> 0.9136971 </td>
+  </tr>
+  <tr>
+   <td style="text-align:right;"> 31.0000000 </td>
+   <td style="text-align:right;"> 39.0000000 </td>
+   <td style="text-align:right;"> 25.0000000 </td>
+   <td style="text-align:right;"> 25.0000000 </td>
+   <td style="text-align:right;"> 21.0000000 </td>
+  </tr>
+</tbody>
+</table>
 

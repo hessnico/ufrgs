@@ -6,14 +6,12 @@ output:
     keep_md: true
 ---
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, message=FALSE, warning=FALSE,include=FALSE}
 knitr::opts_chunk$set(
   fig.path = "main_files/figure-gfm/"
 )
-```
 
-```{r}
-requiredPackages <- c("ggplot2","tidyverse", "ggExtra", "ggpubr", "tree", "GGally", "corrplot", "patchwork","caret", "randomForest")
+requiredPackages <- c("pROC","ROCR", "knitr", "ggplot2","tidyverse", "ggExtra", "ggpubr", "tree", "GGally", "corrplot", "patchwork","caret", "randomForest", "gbm", "dplyr", "pROC", "glmnet", "rpart.plot", "rpart", "randomForestExplainer", "kableExtra")
 for (package in requiredPackages) {
   if (!requireNamespace(package, quietly = TRUE)) {
     install.packages(package)
@@ -22,21 +20,32 @@ for (package in requiredPackages) {
 }
 ```
 
+## Banco de dados 
+
+### Construção do banco 
 ```{r}
 df = read.csv("creditcard.csv")
+
+ratio_antes = round(nrow(df[df$Class == 1, ]) / nrow(df), 4) * 100
 
 df_not_fraud = df[df$Class == 0, ]
 df_fraud = df[df$Class == 1, ]
 
+df_not_fraud = df_not_fraud[sample(nrow(df_not_fraud), nrow(df_not_fraud)/4), ]
 
-df_not_fraud = df_not_fraud[sample(nrow(df_not_fraud), nrow(df_not_fraud)/2), ]
-
-nrow(df_not_fraud)
-nrow(df_fraud)
 df = rbind(df_fraud, df_not_fraud)
-nrow(df)
-head(df)
+ratio_depois = round(nrow(df_fraud) / nrow(df), 4) * 100
 ```
+
+Pelo fato do bancos ser muito desbalanceado e computacionalmente muito complicado de trabalhar, decidi pegar 25% dos casos com sem fraude e manter os casos com fraudes. Tinhamos um ratio de `r ratio_antes`% (total de casos com fraude / total de casos), amostrei aleatoriamente entre os casos não fraudolentos e manti todas as fraudes do banco, ficando com um ratio de `r ratio_depois`%. 
+Além, a subamostragem de casos assim, ajuda os modelos de regressão como árvores para chegar na convergência mais rapidamente. No momento de utilizar o modelo, devemos usar os paramêtros de peso.
+Para comparar, utilizaremos a estatística Kappa, pois ela trabalha com os valores esperados de cada proporção.
+A fórmula dela se dá 
+$$
+\kappa = \frac{precisao \ - \mathbb{E}(precisao)}{1 - \mathbb{E}(precisao)}
+$$
+
+Montando o banco de teste e treinamento, além das tabelas de frequência para a nossa varíavel dependente
 
 ```{r}
 nrow_train = floor(nrow(df) * 0.75)
@@ -46,84 +55,314 @@ set.seed(1234)
 random_sample = sample(nrow(df), size = nrow(df), replace = F)
 
 train_len = random_sample[1:nrow_train]
-length(train_len)
+paste("Tamanho amostral do dataframe de treino: ", length(train_len))
 
 test_len = tail(random_sample, n = nrow_test)
-length(test_len)
+paste("Tamanho amostral do dataframe de teste: ", length(test_len))
 
 test = df[test_len, ] 
 train = df[train_len, ]
 
+# tabela de frequência para teste
 table(test$Class)
+
+#tabela de freq para treino
 table(train$Class)
+
+#tabela total
 table(df$Class)
 ```
  
-
+Gráfico de correlação
 ```{r}
 corrplot(cor(df), method = 'color')
 ```
 
+Um pouco de análise exploratória
 ```{r}
 freq = data.frame(table(df$Class))
 
 freq_plot = ggplot(data = freq, aes(x = Var1, y = Freq, fill = Var1)) +
     geom_bar(stat="identity") +
     geom_text(aes(label=Freq), vjust=1.6, color="black", size=3.5) +
+    theme_classic()
+
+freq_plot_log = ggplot(data = freq, aes(x = Var1, y = Freq, fill = Var1)) +
+    geom_bar(stat="identity") +
+    geom_text(aes(label=Freq), vjust=1.6, color="black", size=3.5) +
     theme_classic() +
-    scale_y_log10()
+  scale_y_continuous(trans='log2')
 
 p1 <- ggplot(data = df, aes(x = Amount, after_stat(density))) + 
     geom_histogram(bins = 50, fill="cyan", color = "black") +
-    theme_classic()
+    theme_bw()
 
-p2 <- ggplot(data = df, aes(x = Time)) + 
-    geom_histogram(bins = 50, fill="cyan", color = "black") +
-    theme_classic() 
+dfplot = df
+dfplot$Class = as.factor(dfplot$Class)
+
+p2 <- ggplot(data = dfplot) + 
+    geom_density(color = "black", aes(x = Time, group = Class, fill = Class), alpha = 0.5) +
+    theme_bw()
 
 freq_plot /
+freq_plot_log /
 (p1|p2)
 ```
 
+
 ```{r}
-rf_model = randomForest(formula= as.factor(Class) ~. ,
-             data = train, 
-             do.trace = TRUE, 
-             ntree = 25)
+# transform to long format (2 columns)
+plot_df = df %>% select(-Amount, -Class, -Time) %>% gather(key = "name", value = "value")
 
-summary(rf_model)
-print(rf_model)
-
-plot(rf_model)
-
-test$predicted <- predict(rf_model, test)
-
-cmrF = confusionMatrix(factor(test$Class), factor(test$predicted))
-
-cmrF$table
-
-cmrF$overall[["Kappa"]]
-
-cmrF
-
-train$predicted = predict(rf_model, train)
-
-randomForest::varImpPlot(rf_model,
-                         sort=TRUE,
-                         main="Variable Importance Plot")
+# plot histigrams per name
+ggplot(plot_df) +
+  geom_histogram(aes(value), bins = 30) +
+  theme_bw() + 
+  facet_wrap(~name, ncol = 7, scales = "free_x")
 ```
 
+## Métodos de regressão 
+
+Primeiro vamos começar pela regressão logística, depois vamos fazer uma árvore com diferentes parâmetros de complexidade e, por fim, utilizar boosting para fazer um random forest. 
 ```{r}
 test = df[test_len, ] 
 train = df[train_len, ]
-tree_model = tree(formula= as.factor(Class) ~ ., 
-                  data = train)
 
-summary(tree_model)
-plot(tree_model)
+#w = case_when(
+#  train$Class == 0 ~ 4,
+#  train$Class == 1 ~ 1
+#)
 
-test$predicted <- predict(tree_model, test, type = "class")
+logit_model = glm(formula= factor(Class) ~ ., 
+                  data = train,
+                  family = binomial(link = "logit"))
 
-confusionMatrix(factor(test$Class), factor(test$predicted))
+test$predicted <- predict(logit_model, test, type = "response")
+pred <- prediction(test$predicted, test$Class)
+
+perf <- performance(pred,"tpr","fpr")
+
+ROCR_perf_test <- performance(pred, 'tpr','fpr')
+plot(ROCR_perf_test,colorize=TRUE,print.cutoffs.at=seq(0.1,by=0.1))
+```
+
+```{r}
+getKappaStatistic = function(cm) {
+	kappa = cm$overall["Kappa"]
+	return(kappa)
+}
+
+getTotalErros = function(cm) {
+  return(sum(as.numeric(cm$table)[c(2, 3)]))  
+}
+# real cutoff
+ROCR_perf_test <- performance(pred, 'cost', cost.fp = 1.1, cost.fn = 0.7)
+cutoff_point = pred@cutoffs[[1]][which.min(ROCR_perf_test@y.values[[1]])]
+
+test$predicted <- predict(logit_model, test, type = "response")
+
+cf_GLM_cost_weights = confusionMatrix(as.factor(test$Class), as.factor(as.numeric(test$predicted > cutoff_point)))
+cf_GLM_cost_weights
+
+glm_kappa = getKappaStatistic(cf_GLM_cost_weights)
+```
+
+Para as árvores, teremos três diferentes, utilzarei o argumento da funçao chamado cp, pela documentação temos que 
+> cp : the amount by which splitting that node improved the relative error.
+
+Ou seja, estamos setando o valor necessário de melhoria no erro relativo para criarmos um novo nodo.
+```{r}
+## cp :  the amount by which splitting that node improved the relative error.
+
+plot_tree_importance_variables = function(tree_m) {
+  df <- data.frame(imp = tree_m$variable.importance)
+  df2 <- df %>% 
+    tibble::rownames_to_column() %>% 
+    dplyr::rename("variable" = rowname) %>% 
+    dplyr::arrange(imp) %>%
+    dplyr::mutate(variable = forcats::fct_inorder(variable))
+  ggplot2::ggplot(df2) +
+    geom_col(aes(x = variable, y = imp),
+             col = "black", show.legend = F) +
+    coord_flip() +
+    scale_fill_grey() +
+    theme_bw()
+}
+
+set.seed(654)
+tree_model_rpart_cp1 = rpart(as.factor(Class) ~ .,
+                         data = train, 
+                         control = rpart.control(cp=.1),
+                         xval = 25)
+
+tree_model_rpart_cp01 = rpart(as.factor(Class) ~ .,
+                         data = train, 
+                         control = rpart.control(cp=.01),
+                         xval = 25)
+
+tree_model_rpart_cp001 = rpart(as.factor(Class) ~ .,
+                         data = train, 
+                         control = rpart.control(cp=.001),
+                         xval = 25)
+
+library(rpart.plot)
+
+prp(tree_model_rpart_cp1,
+    faclen=0, 
+    extra=1,
+    roundint=F, 
+    digits=5,
+    main ="arvore de decisao com parametro de .1",)
+
+prp(tree_model_rpart_cp01,
+    faclen=0,
+    extra=1,
+    digits = 4,
+    roundint=T,
+    main ="arvore de decisao com parametro de .01",)
+
+prp(tree_model_rpart_cp001,
+    faclen=0,
+    extra=1, 
+    roundint=F, 
+    digits=5,
+    main ="arvore de decisao com parametro de .001",)
+
+p1 = plot_tree_importance_variables(tree_model_rpart_cp1)
+p2 = plot_tree_importance_variables(tree_model_rpart_cp01)
+p3 = plot_tree_importance_variables(tree_model_rpart_cp001)
+
+p1
+p2
+p3
+```
+
+Aqui utilizei o melhor valor do paramêtro cp para fazer a poda da árvore 
+```{r}
+pruneTree_findCP_printCM = function(tree_m, test_data, save.data = FALSE) {
+  best_cp <- tree_m$cptable[which.min(tree_m$cptable[,"xerror"]),"CP"]
+  pruned_tree <- prune(tree_m, cp=best_cp)
+  
+  test_data$predicted <- predict(pruned_tree, test, type = "class")
+  cm = confusionMatrix(factor(test_data$Class), factor(test_data$predicted))
+  
+  kappa = cm$overall["Kappa"]
+  total_erros = getTotalErros(cm)
+  
+  print(cm$table)
+  
+  if(save.data == TRUE) {
+    return(list(kappa, total_erros))
+  }
+}
+
+k1 = pruneTree_findCP_printCM(tree_model_rpart_cp1, test, save.data = T)
+k2 = pruneTree_findCP_printCM(tree_model_rpart_cp01, test, save.data = T)
+k3 = pruneTree_findCP_printCM(tree_model_rpart_cp001, test, save.data = T)
+
+k1[[1]]; k2[[1]]; k3[[1]]
+```
+
+Por fim, vamos escolher o valor de cp = .001 como o melhor para o fitting.
+Logo, temos essa como a nossa árvore principal
+```{r}
+best_cp <- tree_model_rpart_cp001$cptable[which.min(tree_model_rpart_cp001$cptable[,"xerror"]),"CP"]
+pruned_tree <- prune(tree_model_rpart_cp001, cp=best_cp)
+
+prp(pruned_tree,
+    faclen=0, 
+    extra=1, 
+    roundint=F, 
+    digits=5)
+```
+
+## Random Forest
+Primeiro vamos encontrar o valor ótimo do argumento mtry, existe um regra de bolso para ele, do qual teremos $mtry = p / 3$ Para modelos de classificação. 
+```{r}
+mtry = max(floor((length(train)-1)/3), 1)
+
+predictor_variables = train %>% select(-Class)
+dependent_variable = as.factor(train$Class)
+
+set.seed(654)
+optimal_mtry_forest = tuneRF(
+            x= predictor_variables,
+            y= dependent_variable,
+            mtryStart = mtry,
+            ntreeTry=250,
+            stepFactor=2,
+            improve=0.05,
+            trace=TRUE, 
+            plot=TRUE, 
+            doBest=FALSE)
+```
+
+```{r}
+df_mtry = data.frame(optimal_mtry_forest)
+mtry = df_mtry$mtry[which.min(df_mtry$OOBError)]
+```
+
+O argumento mtry controla quanta aleatoriedade é adicionada ao modelo de decisão.
+Percebemos que utilizar o mtry = `r mtry` tem o menor OOB Error, então continuares com ele. 
+```{r}
+test = df[test_len, ] 
+train = df[train_len, ]
+
+set.seed(654)
+ntrees = 500
+
+rf_model_principal = randomForest(formula= as.factor(Class) ~.,
+             data = train, 
+             ntree = ntrees,
+             mtry = mtry)
+
+randomForest::varImpPlot(rf_model_principal,
+                         type = 2,
+                         sort=TRUE,
+                         main="Importância de variáveis")
+
+data.frame(rf_model_principal$err.rate) %>% 
+    select(-X0) %>%
+        ggplot(aes(x = seq(1:ntrees), y=X1)) +
+        geom_line(linetype = "dashed", color = 'green', size = 0.7) +
+        theme_bw() +
+        lims(y = c(0, 0.35)) +
+        labs(x="trees", y = "Error", title = "Erro da árvore por iteração")
+
+test$predicted <- predict(rf_model_principal, test, type = "class")
+cm_RF = confusionMatrix(factor(test$Class), factor(test$predicted))
+
+rm_kappa = getKappaStatistic(cm_RF)
+
+cm_RF
+```
+
+
+```{r, echo = FALSE}
+plot_predict_interaction(rf_model_principal, 
+                         data = train,
+                         "V17",
+                         "V14")
+```
+
+## Conclusoes
+
+```{r}
+name = c("GLM Binomial Logit", "Tree com cp = .1", "Tree com cp = .01", "Tree com cp = .001", "Random Forest")
+kappas = c(glm_kappa, k1[[1]], k2[[1]], k3[[1]], rm_kappa)
+
+valores_errados = c(getTotalErros(cf_GLM_cost_weights),
+                    k1[[2]],
+                    k2[[2]],
+                    k3[[2]],
+                    getTotalErros(cm_RF))
+
+res = matrix(NA, nrow = 2, ncol = 5)
+colnames(res) = name
+res[1, ] = kappas
+res[2, ] = as.integer(valores_errados)
+
+kable(res) %>%
+    kable_styling(latex_options = "hold_position")
 ```
 
