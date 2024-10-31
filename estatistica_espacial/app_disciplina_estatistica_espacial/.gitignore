@@ -1,0 +1,66 @@
+# History files
+.Rhistory
+.Rapp.history
+
+# Session Data files
+.RData
+
+# User-specific files
+.Ruserdata
+
+# RStudio files
+.Rproj.user/
+*.Rproj
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+
+# Temporary files created during compilation
+*.o
+*.so
+*.dll
+
+# Output files from R CMD build
+/*.tar.gz
+
+# Temporary files created by R markdown or knitr
+*_cache/
+cache/
+*.utf8.md
+*.knit.md
+
+# Data files
+*.csv
+
+# Renv and Packrat
+renv/library/
+renv/staging/
+packrat/lib*
+packrat/packrat.lock
+packrat/.cache/
+
+# Shared library (DLL) files
+*.rds
+*.RData
+
+# Ignore the renv.lock file if you're not using it for reproducible environments.
+# Otherwise, keep it in version control to track dependencies.
+# renv.lock
+
+# Shapefile extensions
+*.shp
+*.shx
+*.dbf
+*.prj
+*.sbn
+*.sbx
+*.fbn
+*.fbx
+*.ain
+*.aih
+*.ixs
+*.mxs
+*.atx
+*.cpg
+*.qix
