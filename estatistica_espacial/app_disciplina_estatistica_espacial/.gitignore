@@ -32,6 +32,7 @@ cache/
 
 # Data files
 *.csv
+*.xls
 
 # Renv and Packrat
 renv/library/
