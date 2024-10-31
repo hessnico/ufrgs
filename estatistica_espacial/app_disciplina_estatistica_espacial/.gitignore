@@ -23,6 +23,7 @@
 
 # Output files from R CMD build
 /*.tar.gz
+*.zip
 
 # Temporary files created by R markdown or knitr
 *_cache/
@@ -33,6 +34,7 @@ cache/
 # Data files
 *.csv
 *.xls
+*.json
 
 # Renv and Packrat
 renv/library/

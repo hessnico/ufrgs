@@ -163,9 +163,9 @@ getMap <- function(url, estado) {
 
 printEstadosBrasileiros()
 
-main <- function() {
+main <- function(ano) {
   
-  estado = toupper(readline("Digite um estado brasileiro: "))
+  estado = "RS"
   
   estadosFull <- printEstadosBrasileirosFull()
   printEstado <- sprintf("Gerando para %s", toupper(estadosFull[[estado]]))
@@ -185,7 +185,7 @@ main <- function() {
   
   print("...")
   print("Recuperando dados da população de cada município...")
-  pop2022 <- populacao_municipios(2022)
+  pop2022 <- populacao_municipios(ano)
   pop <- pop2022 |> filter(uf == estado)
   rm(pop2022)
   
